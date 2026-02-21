@@ -2,13 +2,18 @@ import mongoose, { Schema } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
+/**
+ * FleetFlow User Roles:
+ *  - MANAGER    : Full access — can manage dispatchers, vehicles, routes, reports
+ *  - DISPATCHER : Operational access — can manage assigned vehicles & deliveries
+ */
 const userSchema = new Schema(
   {
     role: {
       type: String,
-      enum: ["FARMER", "FPO_ADMIN", "ADMIN"],
+      enum: ["MANAGER", "DISPATCHER"],
       required: true,
-      default: "FARMER"
+      default: "DISPATCHER",
     },
     name: {
       type: String,
@@ -34,11 +39,6 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Password is required"],
     },
-    fpoId: {
-      type: Schema.Types.ObjectId,
-      ref: "Fpo",
-      default: null
-    },
     isActive: {
       type: Boolean,
       default: true,
@@ -47,21 +47,24 @@ const userSchema = new Schema(
       type: String,
     },
   },
-  { 
+  {
     timestamps: true,
   }
 );
 
+// Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("passwordHash")) return next();
   this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
   next();
 });
 
+// Compare password
 userSchema.methods.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.passwordHash);
 };
 
+// Generate Access Token (includes role for RBAC)
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
@@ -77,6 +80,7 @@ userSchema.methods.generateAccessToken = function () {
   );
 };
 
+// Generate Refresh Token
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
@@ -88,4 +92,5 @@ userSchema.methods.generateRefreshToken = function () {
     }
   );
 };
+
 export const User = mongoose.model("User", userSchema);

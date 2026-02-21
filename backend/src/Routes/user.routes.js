@@ -1,44 +1,63 @@
 import { Router } from "express";
 import {
-  getCurrentUser,
-  getUserProfile,
-  healthCheck,
+  // Auth
+  registerUser,
   loginUser,
   logoutUser,
   refreshAccessToken,
-  registerUser,
-  resendEmailVerification,
-  resetPassword,
+  // Password
   sendResetPasswordEmail,
-  updateaccountDetails,
+  resetPassword,
+  // Email verification
   verifyEmail,
-  getAllLawyers,
+  resendEmailVerification,
+  // Profile
+  getCurrentUser,
+  updateaccountDetails,
+  healthCheck,
+  getUserProfile,
   getMyId,
+  // FleetFlow Admin (Manager only)
+  getAllUsers,
   getUsersByRole,
-  getFarmersByFPO,
   updateUserRole,
-  deactivateUser
+  deactivateUser,
+  activateUser,
 } from "../Controllers/user.controller.js";
+
 import { verifyJWT } from "../Middlewares/auth.middleware.js";
-import { requireAdmin, requireAdminOrFpoAdmin } from "../Middlewares/roleAuth.middleware.js";
+import { requireManager } from "../Middlewares/roleAuth.middleware.js";
 
 const router = Router();
 
-// Public routes
-router.route("/register").post(registerUser);
-router.route("/login").post(loginUser);
-router.route("/verify-email").get(verifyEmail);
-router.route("/resend-email-verification").post(resendEmailVerification);
-router.route("/send-reset-password-link").post(sendResetPasswordEmail);
-router.route("/reset-password").post(resetPassword);
+// ─────────────────────────────────────────────
+// Public Routes (No auth required)
+// ─────────────────────────────────────────────
+router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.get("/verify-email", verifyEmail);
+router.post("/resend-email-verification", resendEmailVerification);
+router.post("/send-reset-password-link", sendResetPasswordEmail);
+router.post("/reset-password", resetPassword);
+router.post("/refresh-token", refreshAccessToken);
 
-// Secured routes
-router.route("/logout").post(verifyJWT, logoutUser);
-router.route("/refresh-token").post(refreshAccessToken);
-router.route("/current-user").get(verifyJWT, getCurrentUser);
-router.route("/update-account").patch(verifyJWT, updateaccountDetails);
-router.route("/healthcheck").get(verifyJWT, healthCheck);
-router.route("/profile/:userId").get(verifyJWT, getUserProfile);
-router.route("/getMyId").post(verifyJWT, getMyId);
+// ─────────────────────────────────────────────
+// Secured Routes (Any authenticated user)
+// ─────────────────────────────────────────────
+router.post("/logout", verifyJWT, logoutUser);
+router.get("/current-user", verifyJWT, getCurrentUser);
+router.patch("/update-account", verifyJWT, updateaccountDetails);
+router.get("/healthcheck", verifyJWT, healthCheck);
+router.get("/profile/:userId", verifyJWT, getUserProfile);
+router.post("/getMyId", verifyJWT, getMyId);
+
+// ─────────────────────────────────────────────
+// Manager-Only Routes (RBAC: MANAGER role)
+// ─────────────────────────────────────────────
+router.get("/all", verifyJWT, requireManager, getAllUsers);
+router.get("/by-role/:role", verifyJWT, requireManager, getUsersByRole);
+router.patch("/update-role/:userId", verifyJWT, requireManager, updateUserRole);
+router.patch("/deactivate/:userId", verifyJWT, requireManager, deactivateUser);
+router.patch("/activate/:userId", verifyJWT, requireManager, activateUser);
 
 export default router;
