@@ -753,6 +753,36 @@ const activateUser = AsyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "User activated successfully"));
 });
 
+/**
+ * GET /api/v1/users/available-drivers
+ * Get all drivers who are ON_DUTY (not ON_TRIP, not OFF_DUTY)
+ * For trip creation - shows drivers available to be assigned
+ */
+const getAvailableDrivers = AsyncHandler(async (req, res) => {
+  const drivers = await User.find({
+    role: "DRIVER",
+    isActive: true,
+    dutyStatus: "ON_DUTY" // Only drivers who are ON_DUTY (not ON_TRIP or OFF_DUTY)
+  })
+    .select("name email phone licenceNumber licenceType licenceExpiry dutyStatus tripStats")
+    .sort({ name: 1 });
+
+  // Filter out drivers with expired licences
+  const now = new Date();
+  const availableDrivers = drivers.filter(driver => {
+    if (!driver.licenceExpiry) return true; // No expiry date set
+    return new Date(driver.licenceExpiry) > now;
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { drivers: availableDrivers, count: availableDrivers.length },
+      "Available drivers retrieved successfully"
+    )
+  );
+});
+
 export {
   // Auth
   registerUser,
@@ -777,4 +807,6 @@ export {
   updateUserRole,
   deactivateUser,
   activateUser,
+  // Driver availability (for trip assignment)
+  getAvailableDrivers,
 };

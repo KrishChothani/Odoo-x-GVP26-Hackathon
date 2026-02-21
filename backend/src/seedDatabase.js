@@ -227,25 +227,25 @@ async function seedDatabase() {
     await Cargo.deleteMany({});
     console.log("✅ Existing data cleared");
 
-    // Find a manager user to assign as creator
-    let manager = await User.findOne({ role: "MANAGER" });
+    // Find a fleet manager user to assign as creator
+    let manager = await User.findOne({ role: "FLEET_MANAGER" });
     let driver = await User.findOne({ role: "DRIVER" });
 
     if (!manager) {
-      console.log("⚠️  No manager found. Please create a manager account first.");
-      console.log("💡 Creating a test manager account...");
+      console.log("⚠️  No fleet manager found. Please create a fleet manager account first.");
+      console.log("💡 Creating a test fleet manager account...");
       
-      // Create a test manager
+      // Create a test fleet manager
       manager = await User.create({
-        name: "Test Manager",
+        name: "Test Fleet Manager",
         email: "manager@fleetflow.com",
         phone: "+91-9999999999",
         passwordHash: "$2a$10$YourHashedPasswordHere", // This won't work for login, just for system operations
-        role: "MANAGER",
+        role: "FLEET_MANAGER",
         isActive: true,
         isVerified: true,
       });
-      console.log("✅ Test manager created");
+      console.log("✅ Test fleet manager created");
     }
 
     if (!driver) {

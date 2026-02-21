@@ -23,6 +23,8 @@ import {
   updateUserRole,
   deactivateUser,
   activateUser,
+  // Driver availability
+  getAvailableDrivers,
 } from "../Controllers/user.controller.js";
 
 import { verifyJWT } from "../Middlewares/auth.middleware.js";
@@ -51,6 +53,11 @@ router.patch("/update-account", verifyJWT, updateaccountDetails);
 router.get("/healthcheck", verifyJWT, healthCheck);
 router.get("/profile/:userId", verifyJWT, getUserProfile);
 router.post("/getMyId", verifyJWT, getMyId);
+
+// ─────────────────────────────────────────────
+// Driver Availability (for trip assignment)
+// ─────────────────────────────────────────────
+router.get("/available-drivers", verifyJWT, getAvailableDrivers);
 
 // ─────────────────────────────────────────────
 // Manager-Only Routes (RBAC: MANAGER role)
