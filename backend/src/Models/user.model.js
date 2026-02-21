@@ -6,12 +6,13 @@ import bcrypt from "bcryptjs";
  * FleetFlow User Roles:
  *  - MANAGER    : Full access — can manage dispatchers, vehicles, routes, reports
  *  - DISPATCHER : Operational access — can manage assigned vehicles & deliveries
+ *  - DRIVER     : Field access — assigned to vehicles and trips
  */
 const userSchema = new Schema(
   {
     role: {
       type: String,
-      enum: ["MANAGER", "DISPATCHER"],
+      enum: ["MANAGER", "DISPATCHER", "DRIVER"],
       required: true,
       default: "DISPATCHER",
     },

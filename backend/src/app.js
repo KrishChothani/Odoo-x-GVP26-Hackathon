@@ -33,11 +33,13 @@ app.use(cookieParser());
 // Import Routes
 // ─────────────────────────────────────────────
 import userRouter from "./Routes/user.routes.js";
+import dashboardRouter from "./Routes/dashboard.routes.js";
 
 // ─────────────────────────────────────────────
 // Route Declarations
 // ─────────────────────────────────────────────
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/dashboard", dashboardRouter);
 
 // ─────────────────────────────────────────────
 // Root Health Check
@@ -49,6 +51,7 @@ app.get("/", (req, res) => {
     status: "running",
     endpoints: {
       users: "/api/v1/users",
+      dashboard: "/api/v1/dashboard",
     },
   });
 });
