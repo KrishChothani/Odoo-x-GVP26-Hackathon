@@ -6,10 +6,10 @@ import { useState, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '@/services/api';
 
-type UserRole = 'manager' | 'dispatcher';
+type UserRole = 'FLEET_MANAGER' | 'DISPATCHER' | 'DRIVER' | 'SAFETY_OFFICER' | 'FINANCIAL_ANALYST';
 
 function LoginPage() {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('manager');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('FLEET_MANAGER');
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,8 +42,25 @@ function LoginPage() {
       // Show success message
       alert(`Welcome back, ${response.data.user.name}!`);
       
-      // Redirect to dashboard (you'll need to create this route)
-      navigate('/dashboard');
+      // Redirect based on user role
+      switch (response.data.user.role) {
+        case 'DRIVER':
+          navigate('/driver-portal');
+          break;
+        case 'DISPATCHER':
+          navigate('/dispatcher-portal');
+          break;
+        case 'SAFETY_OFFICER':
+          navigate('/safety-officer-portal');
+          break;
+        case 'FINANCIAL_ANALYST':
+          navigate('/financial-analyst-portal');
+          break;
+        case 'FLEET_MANAGER':
+        default:
+          navigate('/dashboard');
+          break;
+      }
     } catch (err: any) {
       const errorMessage = err.message || 'Login failed. Please check your credentials.';
       setError(errorMessage);
@@ -241,30 +258,66 @@ function LoginPage() {
             {/* Role Selection */}
             <div className="mb-6">
               <Label className="mb-3 block">Select Your Role</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedRole('manager')}
-                  className={`rounded-lg border-2 p-4 text-center transition-all ${
-                    selectedRole === 'manager'
+                  onClick={() => setSelectedRole('FLEET_MANAGER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'FLEET_MANAGER'
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
                   }`}
                 >
-                  <div className="text-lg font-semibold">Manager</div>
-                  <div className="text-xs">Full access</div>
+                  <div className="text-sm font-semibold">Fleet Manager</div>
+                  <div className="text-xs">Full Access</div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedRole('dispatcher')}
-                  className={`rounded-lg border-2 p-4 text-center transition-all ${
-                    selectedRole === 'dispatcher'
+                  onClick={() => setSelectedRole('DISPATCHER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'DISPATCHER'
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
                   }`}
                 >
-                  <div className="text-lg font-semibold">Dispatcher</div>
-                  <div className="text-xs">Operations</div>
+                  <div className="text-sm font-semibold">Dispatcher</div>
+                  <div className="text-xs">Trip Creation</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('DRIVER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'DRIVER'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">Driver</div>
+                  <div className="text-xs">Trip Execution</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('SAFETY_OFFICER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'SAFETY_OFFICER'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">Safety Officer</div>
+                  <div className="text-xs">Compliance</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('FINANCIAL_ANALYST')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all col-span-2 ${
+                    selectedRole === 'FINANCIAL_ANALYST'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">Financial Analyst</div>
+                  <div className="text-xs">Cost Analysis</div>
                 </button>
               </div>
             </div>

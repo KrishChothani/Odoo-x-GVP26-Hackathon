@@ -4,17 +4,19 @@ import bcrypt from "bcryptjs";
 
 /**
  * FleetFlow User Roles:
- *  - MANAGER    : Full access — can manage dispatchers, vehicles, routes, reports
- *  - DISPATCHER : Operational access — can manage assigned vehicles & deliveries
- *  - DRIVER     : Field access — assigned to vehicles and trips
+ *  - FLEET_MANAGER     : Oversee vehicle health, asset lifecycle, and scheduling
+ *  - DISPATCHER        : Create trips, assign drivers, validate cargo loads
+ *  - SAFETY_OFFICER    : Monitor driver compliance, license expirations, safety scores
+ *  - FINANCIAL_ANALYST : Audit fuel spend, maintenance ROI, operational costs
+ *  - DRIVER            : Accept trip, complete trip, cancel trip, toggle duty status
  */
 const userSchema = new Schema(
   {
     role: {
       type: String,
-      enum: ["MANAGER", "DISPATCHER", "DRIVER"],
+      enum: ["FLEET_MANAGER", "DISPATCHER", "SAFETY_OFFICER", "FINANCIAL_ANALYST", "DRIVER"],
       required: true,
-      default: "DISPATCHER",
+      default: "DRIVER",
     },
     name: {
       type: String,
@@ -51,11 +53,17 @@ const userSchema = new Schema(
     refreshToken: {
       type: String,
     },
-    // Dispatcher-specific fields
+    
+    // Driver-specific fields
     licenceNumber: {
       type: String,
       trim: true,
       sparse: true, // Allows multiple null values
+    },
+    licenceType: {
+      type: String,
+      enum: ["BIKE", "TRUCK", "VAN_TEMPO"],
+      sparse: true,
     },
     licenceExpiry: {
       type: Date,
@@ -63,6 +71,19 @@ const userSchema = new Schema(
     licenceImage: {
       type: String, // Cloudinary URL
       trim: true,
+    },
+    dutyStatus: {
+      type: String,
+      enum: ["ON_DUTY", "OFF_DUTY", "ON_TRIP"],
+      default: "OFF_DUTY",
+    },
+    
+    // Trip statistics for reliability tracking
+    tripStats: {
+      totalTrips: { type: Number, default: 0 },
+      completedTrips: { type: Number, default: 0 },
+      cancelledTrips: { type: Number, default: 0 },
+      acceptedTrips: { type: Number, default: 0 },
     },
   },
   {

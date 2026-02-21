@@ -73,7 +73,7 @@ const RESET_PASSWORD_MAIL_TEMPLATE = (link) => ({
 //  Helpers
 // ─────────────────────────────────────────────
 
-const VALID_ROLES = ["MANAGER", "DISPATCHER"];
+const VALID_ROLES = ["FLEET_MANAGER", "DISPATCHER", "DRIVER", "SAFETY_OFFICER", "FINANCIAL_ANALYST"];
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -134,7 +134,7 @@ const sendMail = async (emailId, htmlContent) => {
  * Supports multipart/form-data for dispatcher licence image
  */
 const registerUser = AsyncHandler(async (req, res) => {
-  const { name, email, phone, passwordHash, role = "DISPATCHER", licenceNumber, licenceExpiry } = req.body;
+  const { name, email, phone, passwordHash, role = "DRIVER", licenceNumber, licenceType, licenceExpiry } = req.body;
 
   // Validate required fields
   if ([name, email, phone, passwordHash].some((f) => !f?.trim())) {
@@ -147,13 +147,19 @@ const registerUser = AsyncHandler(async (req, res) => {
     throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`);
   }
 
-  // Validate dispatcher-specific fields
-  if (upperRole === "DISPATCHER") {
-    if (!licenceNumber || !licenceExpiry) {
-      throw new ApiError(400, "Licence number and expiry date are required for dispatchers");
+  // Validate driver-specific fields
+  if (upperRole === "DRIVER") {
+    if (!licenceNumber || !licenceType || !licenceExpiry) {
+      throw new ApiError(400, "Licence number, type, and expiry date are required for drivers");
     }
     if (!req.file) {
-      throw new ApiError(400, "Licence image is required for dispatchers");
+      throw new ApiError(400, "Licence image is required for drivers");
+    }
+    
+    // Validate licence type
+    const validLicenceTypes = ["BIKE", "TRUCK", "VAN_TEMPO"];
+    if (!validLicenceTypes.includes(licenceType.toUpperCase())) {
+      throw new ApiError(400, `Invalid licence type. Must be one of: ${validLicenceTypes.join(", ")}`);
     }
   }
 
@@ -167,9 +173,9 @@ const registerUser = AsyncHandler(async (req, res) => {
     throw new ApiError(409, "User with this phone or email already exists");
   }
 
-  // Upload licence image to Cloudinary if dispatcher
+  // Upload licence image to Cloudinary if driver
   let licenceImageUrl = null;
-  if (upperRole === "DISPATCHER" && req.file) {
+  if (upperRole === "DRIVER" && req.file) {
     const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
     if (!cloudinaryResponse) {
       throw new ApiError(500, "Failed to upload licence image");
@@ -187,9 +193,10 @@ const registerUser = AsyncHandler(async (req, res) => {
     isVerified: false,
   };
 
-  // Add dispatcher-specific fields
-  if (upperRole === "DISPATCHER") {
+  // Add driver-specific fields
+  if (upperRole === "DRIVER") {
     userData.licenceNumber = licenceNumber.trim();
+    userData.licenceType = licenceType.toUpperCase();
     userData.licenceExpiry = new Date(licenceExpiry);
     userData.licenceImage = licenceImageUrl;
   }

@@ -6,12 +6,13 @@ import { useState, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '@/services/api';
 
-type UserRole = 'manager' | 'dispatcher';
+type UserRole = 'FLEET_MANAGER' | 'DISPATCHER' | 'DRIVER' | 'SAFETY_OFFICER' | 'FINANCIAL_ANALYST';
 
 function SignUpPage() {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('dispatcher');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('DRIVER');
   const [showPassword, setShowPassword] = useState(false);
   const [licenceImage, setLicenceImage] = useState<File | null>(null);
+  const [licenceType, setLicenceType] = useState<'BIKE' | 'TRUCK' | 'VAN_TEMPO'>('BIKE');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
@@ -32,13 +33,14 @@ function SignUpPage() {
       const formData = new FormData(e.target as HTMLFormElement);
       
       const signUpData = {
-        role: selectedRole.toUpperCase() as 'MANAGER' | 'DISPATCHER',
+        role: selectedRole,
         name: formData.get('name') as string,
         email: formData.get('email') as string,
         phone: formData.get('phone') as string,
         passwordHash: formData.get('password') as string,
-        ...(selectedRole === 'dispatcher' && {
+        ...(selectedRole === 'DRIVER' && {
           licenceNumber: formData.get('licenceNumber') as string,
+          licenceType: licenceType,
           licenceExpiry: formData.get('licenceExpiry') as string,
           licenceImage: licenceImage!,
         }),
@@ -97,7 +99,7 @@ function SignUpPage() {
               </div>
               <div>
                 <h3 className="font-semibold">Role-Based Access</h3>
-                <p className="text-sm text-white/80">Choose between Manager or Dispatcher roles</p>
+                <p className="text-sm text-white/80">Choose from 5 specialized roles</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -146,30 +148,66 @@ function SignUpPage() {
             {/* Role Selection */}
             <div className="mb-6">
               <Label className="mb-3 block">Select Your Role</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedRole('dispatcher')}
-                  className={`rounded-lg border-2 p-4 text-center transition-all ${
-                    selectedRole === 'dispatcher'
+                  onClick={() => setSelectedRole('FLEET_MANAGER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'FLEET_MANAGER'
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
                   }`}
                 >
-                  <div className="text-lg font-semibold">Dispatcher</div>
-                  <div className="text-xs">Operations</div>
+                  <div className="text-sm font-semibold">Fleet Manager</div>
+                  <div className="text-xs">Full Access</div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedRole('manager')}
-                  className={`rounded-lg border-2 p-4 text-center transition-all ${
-                    selectedRole === 'manager'
+                  onClick={() => setSelectedRole('DISPATCHER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'DISPATCHER'
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
                   }`}
                 >
-                  <div className="text-lg font-semibold">Manager</div>
-                  <div className="text-xs">Full access</div>
+                  <div className="text-sm font-semibold">Dispatcher</div>
+                  <div className="text-xs">Trip Creation</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('DRIVER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'DRIVER'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">Driver</div>
+                  <div className="text-xs">Trip Execution</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('SAFETY_OFFICER')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all ${
+                    selectedRole === 'SAFETY_OFFICER'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">Safety Officer</div>
+                  <div className="text-xs">Compliance</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('FINANCIAL_ANALYST')}
+                  className={`rounded-lg border-2 p-3 text-center transition-all col-span-2 ${
+                    selectedRole === 'FINANCIAL_ANALYST'
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">Financial Analyst</div>
+                  <div className="text-xs">Cost Analysis</div>
                 </button>
               </div>
             </div>
@@ -239,8 +277,8 @@ function SignUpPage() {
                 </p>
               </div>
 
-              {/* Dispatcher-specific Fields */}
-              {selectedRole === 'dispatcher' && (
+              {/* Driver-specific Fields */}
+              {selectedRole === 'DRIVER' && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor={`${formId}-licenceNumber`}>Licence Number</Label>
@@ -251,6 +289,24 @@ function SignUpPage() {
                       placeholder="DL123456789"
                       required
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`${formId}-licenceType`}>Licence Type</Label>
+                    <select
+                      id={`${formId}-licenceType`}
+                      value={licenceType}
+                      onChange={(e) => setLicenceType(e.target.value as 'BIKE' | 'TRUCK' | 'VAN_TEMPO')}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      required
+                    >
+                      <option value="BIKE">Bike License</option>
+                      <option value="TRUCK">Truck License</option>
+                      <option value="VAN_TEMPO">Van/Tempo License</option>
+                    </select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Select the type of vehicle you are licensed to drive
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -293,7 +349,7 @@ function SignUpPage() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading 
                   ? 'Signing Up...' 
-                  : `Sign Up as ${selectedRole === 'dispatcher' ? 'Dispatcher' : 'Manager'}`
+                  : `Sign Up as ${selectedRole.replace('_', ' ').split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}`
                 }
               </Button>
             </form>

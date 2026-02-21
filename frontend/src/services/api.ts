@@ -49,8 +49,9 @@ export interface RegisterData {
   email: string;
   phone: string;
   passwordHash: string;
-  role: 'MANAGER' | 'DISPATCHER';
+  role: 'FLEET_MANAGER' | 'DISPATCHER' | 'SAFETY_OFFICER' | 'FINANCIAL_ANALYST' | 'DRIVER';
   licenceNumber?: string;
+  licenceType?: 'BIKE' | 'TRUCK' | 'VAN_TEMPO';
   licenceExpiry?: string;
   licenceImage?: File;
 }
@@ -66,11 +67,19 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'MANAGER' | 'DISPATCHER';
+  role: 'FLEET_MANAGER' | 'DISPATCHER' | 'SAFETY_OFFICER' | 'FINANCIAL_ANALYST' | 'DRIVER';
   isActive: boolean;
   licenceNumber?: string;
+  licenceType?: 'BIKE' | 'TRUCK' | 'VAN_TEMPO';
   licenceExpiry?: string;
   licenceImage?: string;
+  dutyStatus?: 'ON_DUTY' | 'OFF_DUTY' | 'ON_TRIP';
+  tripStats?: {
+    totalTrips: number;
+    completedTrips: number;
+    cancelledTrips: number;
+    acceptedTrips: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -97,9 +106,10 @@ export const authAPI = {
     formData.append('passwordHash', data.passwordHash);
     formData.append('role', data.role);
 
-    // Add dispatcher-specific fields
-    if (data.role === 'DISPATCHER') {
+    // Add driver-specific fields
+    if (data.role === 'DRIVER') {
       if (data.licenceNumber) formData.append('licenceNumber', data.licenceNumber);
+      if (data.licenceType) formData.append('licenceType', data.licenceType);
       if (data.licenceExpiry) formData.append('licenceExpiry', data.licenceExpiry);
       if (data.licenceImage) formData.append('licenceImage', data.licenceImage);
     }

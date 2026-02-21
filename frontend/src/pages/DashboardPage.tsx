@@ -19,7 +19,30 @@ const DashboardPage: React.FC = () => {
     }
     
     if (userData) {
-      setUser(JSON.parse(userData));
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      
+      // Redirect users to their appropriate portals
+      switch (parsedUser.role) {
+        case 'DRIVER':
+          navigate('/driver-portal');
+          return;
+        case 'DISPATCHER':
+          navigate('/dispatcher-portal');
+          return;
+        case 'SAFETY_OFFICER':
+          navigate('/safety-officer-portal');
+          return;
+        case 'FINANCIAL_ANALYST':
+          navigate('/financial-analyst-portal');
+          return;
+        case 'FLEET_MANAGER':
+          // This is the correct dashboard for fleet managers
+          break;
+        default:
+          navigate('/login');
+          return;
+      }
     }
   }, [navigate]);
 
