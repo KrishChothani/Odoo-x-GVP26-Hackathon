@@ -27,13 +27,14 @@ import {
 
 import { verifyJWT } from "../Middlewares/auth.middleware.js";
 import { requireManager } from "../Middlewares/roleAuth.middleware.js";
+import { upload } from "../Middlewares/multer.middleware.js";
 
 const router = Router();
 
 // ─────────────────────────────────────────────
 // Public Routes (No auth required)
 // ─────────────────────────────────────────────
-router.post("/register", registerUser);
+router.post("/register", upload.single("licenceImage"), registerUser);
 router.post("/login", loginUser);
 router.get("/verify-email", verifyEmail);
 router.post("/resend-email-verification", resendEmailVerification);

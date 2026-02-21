@@ -43,8 +43,25 @@ const userSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     refreshToken: {
       type: String,
+    },
+    // Dispatcher-specific fields
+    licenceNumber: {
+      type: String,
+      trim: true,
+      sparse: true, // Allows multiple null values
+    },
+    licenceExpiry: {
+      type: Date,
+    },
+    licenceImage: {
+      type: String, // Cloudinary URL
+      trim: true,
     },
   },
   {

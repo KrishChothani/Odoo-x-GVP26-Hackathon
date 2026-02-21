@@ -5,6 +5,8 @@ import { ApiResponse } from "../Utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import mongoose from "mongoose";
+import { uploadOnCloudinary } from "../Utils/Cloudinary.js";
+import fs from "fs";
 
 // ─────────────────────────────────────────────
 //  Email Templates
@@ -89,21 +91,34 @@ const generateAccessAndRefreshToken = async (userId) => {
 };
 
 const sendMail = async (emailId, htmlContent) => {
+  // console.log("emailId", emailId, htmlContent);
   try {
-    // Uncomment and configure when SMTP is ready
-    // const transporter = nodemailer.createTransporter({
-    //   host: process.env.SMTP_HOST,
-    //   port: process.env.SMTP_PORT,
-    //   secure: true,
-    //   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    // });
-    // const receiver = {
-    //   from: `"FleetFlow" <${process.env.SMTP_USER || 'noreply@fleetflow.com'}>`,
-    //   to: emailId,
-    //   ...htmlContent,
-    // };
-    // return await transporter.sendMail(receiver);
-    return true; // placeholder
+    const auth = nodemailer.createTransport({
+      host: "smtp.zoho.in",
+      port: 465,
+      secure: true,
+      auth: {
+        user: "verify@matterassist.com",
+        pass: "SVEzd6tcBWKQ",
+      },
+    });
+    const receiver = {
+      from: '"MatterAssist" <verify@matterassist.com>',
+      to: emailId,
+      ...htmlContent,
+    };
+
+    return new Promise((resolve, reject) => {
+      auth.sendMail(receiver, (err, email_res) => {
+        if (err) {
+          // console.log("Error:", err);
+          reject(new Error("Email sending failed"));
+        } else {
+          // console.log("Email Sent:", email_res);
+          resolve(email_res);
+        }
+      });
+    });
   } catch (error) {
     throw new ApiError(500, "Something went wrong while sending the email");
   }
@@ -116,9 +131,10 @@ const sendMail = async (emailId, htmlContent) => {
 /**
  * POST /api/v1/users/register
  * Public — Register a new user (Manager or Dispatcher)
+ * Supports multipart/form-data for dispatcher licence image
  */
 const registerUser = AsyncHandler(async (req, res) => {
-  const { name, email, phone, passwordHash, role = "DISPATCHER" } = req.body;
+  const { name, email, phone, passwordHash, role = "DISPATCHER", licenceNumber, licenceExpiry } = req.body;
 
   // Validate required fields
   if ([name, email, phone, passwordHash].some((f) => !f?.trim())) {
@@ -126,24 +142,59 @@ const registerUser = AsyncHandler(async (req, res) => {
   }
 
   // Validate role
-  if (!VALID_ROLES.includes(role)) {
+  const upperRole = role.toUpperCase();
+  if (!VALID_ROLES.includes(upperRole)) {
     throw new ApiError(400, `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`);
+  }
+
+  // Validate dispatcher-specific fields
+  if (upperRole === "DISPATCHER") {
+    if (!licenceNumber || !licenceExpiry) {
+      throw new ApiError(400, "Licence number and expiry date are required for dispatchers");
+    }
+    if (!req.file) {
+      throw new ApiError(400, "Licence image is required for dispatchers");
+    }
   }
 
   // Check if user already exists
   const existedUser = await User.findOne({ $or: [{ phone }, { email }] });
   if (existedUser) {
+    // Clean up uploaded file if exists
+    if (req.file?.path) {
+      fs.unlinkSync(req.file.path);
+    }
     throw new ApiError(409, "User with this phone or email already exists");
   }
 
-  const user = await User.create({
+  // Upload licence image to Cloudinary if dispatcher
+  let licenceImageUrl = null;
+  if (upperRole === "DISPATCHER" && req.file) {
+    const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
+    if (!cloudinaryResponse) {
+      throw new ApiError(500, "Failed to upload licence image");
+    }
+    licenceImageUrl = cloudinaryResponse.secure_url;
+  }
+
+  const userData = {
     name: name.trim(),
     email: email.toLowerCase().trim(),
     phone: phone.trim(),
     passwordHash,
-    role,
+    role: upperRole,
     isActive: true,
-  });
+    isVerified: false,
+  };
+
+  // Add dispatcher-specific fields
+  if (upperRole === "DISPATCHER") {
+    userData.licenceNumber = licenceNumber.trim();
+    userData.licenceExpiry = new Date(licenceExpiry);
+    userData.licenceImage = licenceImageUrl;
+  }
+
+  const user = await User.create(userData);
 
   const createdUser = await User.findById(user._id).select(
     "-passwordHash -refreshToken"
@@ -159,7 +210,8 @@ const registerUser = AsyncHandler(async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: "30m" }
   );
-  const verifyLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${token}`;
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:2590";
+  const verifyLink = `${backendUrl}/api/v1/users/verify-email?token=${token}`;
   await sendMail(email, LOGIN_USER_MAIL_TEMPLATE(verifyLink));
 
   return res.status(201).json(
@@ -192,6 +244,11 @@ const loginUser = AsyncHandler(async (req, res) => {
 
   if (!user) {
     throw new ApiError(404, "User does not exist or account is inactive");
+  }
+
+  // Check if email is verified
+  if (!user.isVerified) {
+    throw new ApiError(403, "Please verify your email before logging in. Check your inbox for the verification link.");
   }
 
   const isPasswordValid = await user.isPasswordCorrect(passwordHash);
@@ -356,29 +413,39 @@ const resetPassword = AsyncHandler(async (req, res) => {
  * Public
  */
 const verifyEmail = AsyncHandler(async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  
   try {
     const { token } = req.query;
+    
+    if (!token) {
+      return res.redirect(`${frontendUrl}/email-verified?success=false&error=missing_token`);
+    }
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findOneAndUpdate(
       { email: decoded.email },
-      { $set: { isActive: true } },
+      { $set: { isVerified: true } },
       { new: true }
     ).select("-passwordHash -refreshToken");
 
-    if (!user) throw new ApiError(404, "User not found");
+    if (!user) {
+      return res.redirect(`${frontendUrl}/email-verified?success=false&error=user_not_found`);
+    }
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, { user }, "Email verified successfully"));
+    // Redirect to frontend success page
+    return res.redirect(`${frontendUrl}/email-verified?success=true&email=${encodeURIComponent(user.email)}`);
   } catch (error) {
+    let errorType = "unknown_error";
+    
     if (error.name === "JsonWebTokenError") {
-      throw new ApiError(400, "Invalid verification token");
+      errorType = "invalid_token";
+    } else if (error.name === "TokenExpiredError") {
+      errorType = "token_expired";
     }
-    if (error.name === "TokenExpiredError") {
-      throw new ApiError(400, "Verification token has expired");
-    }
-    throw new ApiError(500, "Something went wrong while verifying email");
+    
+    return res.redirect(`${frontendUrl}/email-verified?success=false&error=${errorType}`);
   }
 });
 
@@ -399,7 +466,8 @@ const resendEmailVerification = AsyncHandler(async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: "30m" }
   );
-  const verifyLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${token}`;
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:2590";
+  const verifyLink = `${backendUrl}/api/v1/users/verify-email?token=${token}`;
   const send_email = await sendMail(email, LOGIN_USER_MAIL_TEMPLATE(verifyLink));
 
   if (!send_email) {
