@@ -11,10 +11,10 @@ import FinancialAnalystDashboard from './pages/FinancialAnalystDashboard';
 import FleetFlow from './pages/FleetFlow';
 import VehicleRegistry from './pages/VehicleRegistry';
 import TripDispatcher from './pages/TripDispatcher';
-import Maintenance from './pages/Maintenance';
-import TripExpense from './pages/TripExpense';
-import Performance from './pages/Performance';
-import Analytics from './pages/Analytics';
+import MaintenancePage from './pages/MaintenancePage';
+import ExpenseTrackingPage from './pages/ExpenseTrackingPage';
+import DriverPerformancePage from './pages/DriverPerformancePage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 function App() {
   return (
@@ -29,14 +29,26 @@ function App() {
         <Route index element={<FleetFlow />} />
         <Route path="vehicle-registry" element={<VehicleRegistry />} />
         <Route path="trip-dispatcher" element={<TripDispatcher />} />
-        <Route path="maintenance" element={<Maintenance />} />
-        <Route path="trip-expense" element={<TripExpense />} />
-        <Route path="performance" element={<Performance />} />
-        <Route path="analytics" element={<Analytics />} />
+        <Route path="maintenance" element={<MaintenancePage />} />
+        <Route path="trip-expense" element={<ExpenseTrackingPage />} />
+        <Route path="driver-performance" element={<DriverPerformancePage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
       </Route>
       
       {/* Dispatcher Dashboard - Trip Creation & Assignment */}
       <Route path="/dispatcher-portal" element={<DispatcherDashboard />} />
+      
+      {/* Maintenance Portal - Service & Repairs (FLEET_MANAGER, DISPATCHER) */}
+      <Route path="/maintenance-portal" element={<MaintenancePage />} />
+      
+      {/* Expense Tracking Portal - Fuel & Operational Costs (FLEET_MANAGER, DISPATCHER, FINANCIAL_ANALYST, DRIVER) */}
+      <Route path="/expense-portal" element={<ExpenseTrackingPage />} />
+      
+      {/* Driver Performance Portal - Compliance & Safety (FLEET_MANAGER, SAFETY_OFFICER) */}
+      <Route path="/driver-performance-portal" element={<DriverPerformancePage />} />
+      
+      {/* Analytics Portal - Operational Analytics & Financial Reports (FLEET_MANAGER, FINANCIAL_ANALYST) */}
+      <Route path="/analytics-portal" element={<AnalyticsPage />} />
       
       {/* Driver Dashboard - Trip Execution Only */}
       <Route path="/driver-portal" element={<DriverDashboard />} />

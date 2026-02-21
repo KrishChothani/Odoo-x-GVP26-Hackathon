@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI, User } from '../services/api';
+import { authAPI, User, driverAPI, tripAPI } from '../services/api';
 import { 
   LogOut, 
   User as UserIcon, 
@@ -24,11 +24,17 @@ interface TripStats {
 interface Trip {
   _id: string;
   tripNumber: string;
-  origin: string;
-  destination: string;
+  origin: {
+    address: string;
+    coordinates?: { latitude: number; longitude: number };
+  };
+  destination: {
+    address: string;
+    coordinates?: { latitude: number; longitude: number };
+  };
   cargo: string;
   distance: string;
-  status: 'ASSIGNED' | 'ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'DISPATCHED' | 'COMPLETED' | 'CANCELLED';
   assignedAt: string;
   vehicle: {
     name: string;
@@ -91,12 +97,31 @@ const DriverDashboard: React.FC = () => {
         }
       }
       
-      // TODO: Fetch active trips from API
-      setTrips([]);
-      
-      setLoading(false);
+      // Fetch driver's trips from API (automatically filtered by driver ID on backend)
+      try {
+        const response = await tripAPI.getAll({});
+        if (response?.success && response?.data?.trips) {
+          setTrips(response.data.trips);
+          
+          // Update in-progress count from active trips (DISPATCHED trips)
+          const inProgressCount = response.data.trips.filter(
+            (trip: Trip) => trip.status === 'DISPATCHED'
+          ).length;
+          
+          setStats(prev => ({ ...prev, inProgress: inProgressCount }));
+        } else {
+          // No trips or failed to fetch, just set empty array
+          setTrips([]);
+        }
+      } catch (apiError) {
+        console.error('Error fetching trips:', apiError);
+        // Set empty trips array so component can still render
+        setTrips([]);
+      }
     } catch (error) {
       console.error('Error loading driver data:', error);
+    } finally {
+      // Always set loading to false to allow component to render
       setLoading(false);
     }
   };
@@ -104,21 +129,25 @@ const DriverDashboard: React.FC = () => {
   // Duty status toggle
   const handleDutyStatusToggle = async () => {
     try {
-      const newStatus = user?.dutyStatus === 'ON_DUTY' ? 'OFF_DUTY' : 'ON_DUTY';
-      // TODO: API call to update duty status
-      console.log('Toggling duty status to:', newStatus);
+      // Call API to update duty status
+      const response = await driverAPI.toggleDutyStatus();
       
-      // Update local state
-      if (user) {
-        const updatedUser = { ...user, dutyStatus: newStatus };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+      if (response.success) {
+        const newStatus = response.data.dutyStatus;
+        
+        // Update local state and localStorage
+        if (user) {
+          const updatedUser = { ...user, dutyStatus: newStatus };
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+        
+        alert(`Duty status changed to ${newStatus.replace('_', ' ')}`);
       }
-      
-      alert(`Duty status changed to ${newStatus.replace('_', ' ')}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling duty status:', error);
-      alert('Failed to update duty status');
+      const errorMessage = error.response?.data?.message || 'Failed to update duty status';
+      alert(errorMessage);
     }
   };
 
@@ -136,28 +165,28 @@ const DriverDashboard: React.FC = () => {
   };
 
   // Trip actions
-  const handleAcceptTrip = async (tripId: string) => {
-    try {
-      // TODO: API call to accept trip
-      console.log('Accepting trip:', tripId);
-      // Update trip status
-      alert('Trip accepted successfully!');
-      loadDispatcherData();
-    } catch (error) {
-      console.error('Error accepting trip:', error);
-      alert('Failed to accept trip');
-    }
-  };
-
   const handleCompleteTrip = async (tripId: string) => {
     try {
-      // TODO: API call to complete trip
-      console.log('Completing trip:', tripId);
-      alert('Trip completed successfully!');
-      loadDispatcherData();
-    } catch (error) {
+      // Call API to complete trip
+      const response = await tripAPI.complete(tripId, {});
+      
+      if (response.success) {
+        alert('Trip completed successfully! Vehicle is now available and duty status updated.');
+        
+        // Reload driver data to refresh trips and stats
+        await loadDriverData();
+        
+        // Refresh user data to get updated tripStats
+        const userResponse = await authAPI.getCurrentUser();
+        if (userResponse.success && userResponse.data) {
+          setUser(userResponse.data.user);
+          localStorage.setItem('user', JSON.stringify(userResponse.data.user));
+        }
+      }
+    } catch (error: any) {
       console.error('Error completing trip:', error);
-      alert('Failed to complete trip');
+      const errorMessage = error.response?.data?.message || 'Failed to complete trip';
+      alert(errorMessage);
     }
   };
 
@@ -169,7 +198,7 @@ const DriverDashboard: React.FC = () => {
       // TODO: API call to cancel trip
       console.log('Cancelling trip:', tripId, 'Reason:', reason);
       alert('Trip cancelled');
-      loadDispatcherData();
+      loadDriverData();
     } catch (error) {
       console.error('Error cancelling trip:', error);
       alert('Failed to cancel trip');
@@ -178,12 +207,10 @@ const DriverDashboard: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ASSIGNED':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'ACCEPTED':
+      case 'DRAFT':
+        return 'bg-gray-100 text-gray-800';
+      case 'DISPATCHED':
         return 'bg-blue-100 text-blue-800';
-      case 'IN_PROGRESS':
-        return 'bg-orange-100 text-orange-800';
       case 'COMPLETED':
         return 'bg-green-100 text-green-800';
       case 'CANCELLED':
@@ -203,6 +230,14 @@ const DriverDashboard: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl text-gray-600">Loading user data...</div>
       </div>
     );
   }
@@ -275,7 +310,7 @@ const DriverDashboard: React.FC = () => {
                 <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Reliabili ({user.licenceType?.replace('_', ' ')})ty Score</p>
+                <p className="text-sm text-gray-600">Reliability Score</p>
                 <p className="text-2xl font-bold text-gray-900">{getReliabilityScore()}</p>
                 <p className="text-xs text-gray-500">{stats.completed} completed</p>
               </div>
@@ -384,7 +419,7 @@ const DriverDashboard: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                         <div>
                           <p className="text-sm text-gray-500">Route</p>
-                          <p className="text-sm font-medium text-gray-900">{trip.origin} → {trip.destination}</p>
+                          <p className="text-sm font-medium text-gray-900">{trip.origin.address} → {trip.destination.address}</p>
                           <p className="text-xs text-gray-500 mt-1">{trip.distance}</p>
                         </div>
                         <div>
@@ -396,33 +431,7 @@ const DriverDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col gap-2 ml-4">
-                      {trip.status === 'ASSIGNED' && (
-                        <>
-                          <button
-                            onClick={() => handleAcceptTrip(trip._id)}
-                            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                          >
-                            Accept Trip
-                          </button>
-                          <button
-                            onClick={() => handleCancelTrip(trip._id)}
-                            className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100"
-                          >
-                            Decline
-                          </button>
-                        </>
-                      )}
-                      
-                      {trip.status === 'ACCEPTED' && (
-                        <button
-                          onClick={() => handleCompleteTrip(trip._id)}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                        >
-                          Start Trip
-                        </button>
-                      )}
-                      
-                      {trip.status === 'IN_PROGRESS' && (
+                      {trip.status === 'DISPATCHED' && (
                         <>
                           <button
                             onClick={() => handleCompleteTrip(trip._id)}
@@ -434,9 +443,21 @@ const DriverDashboard: React.FC = () => {
                             onClick={() => handleCancelTrip(trip._id)}
                             className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100"
                           >
-                            Cancel
+                            Cancel Trip
                           </button>
                         </>
+                      )}
+                      
+                      {trip.status === 'COMPLETED' && (
+                        <span className="px-4 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md">
+                          ✓ Completed
+                        </span>
+                      )}
+                      
+                      {trip.status === 'CANCELLED' && (
+                        <span className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md">
+                          ✗ Cancelled
+                        </span>
                       )}
                     </div>
                   </div>

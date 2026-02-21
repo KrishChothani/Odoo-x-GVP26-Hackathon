@@ -783,6 +783,218 @@ const getAvailableDrivers = AsyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * GET /api/v1/users/all-drivers
+ * Get all active drivers (regardless of duty status)
+ * For expense tracking and other purposes - accessible by FLEET_MANAGER, DISPATCHER, FINANCIAL_ANALYST
+ */
+const getAllDrivers = AsyncHandler(async (req, res) => {
+  const drivers = await User.find({
+    role: "DRIVER",
+    isActive: true
+  })
+    .select("name email phone licenceNumber licenceType licenceExpiry dutyStatus tripStats")
+    .sort({ name: 1 });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { drivers, count: drivers.length },
+      "All drivers retrieved successfully"
+    )
+  );
+});
+
+/**
+ * GET /api/v1/users/driver-performance
+ * Get all drivers with performance metrics and license information
+ * For Driver Performance & Safety Profiles - accessible by FLEET_MANAGER, SAFETY_OFFICER
+ */
+const getDriverPerformance = AsyncHandler(async (req, res) => {
+  const drivers = await User.find({
+    role: "DRIVER"
+  })
+    .select("name email phone licenceNumber licenceType licenceExpiry licenceImage dutyStatus isActive tripStats createdAt")
+    .sort({ name: 1 });
+
+  // Calculate performance metrics for each driver
+  const driversWithMetrics = drivers.map(driver => {
+    const totalTrips = driver.tripStats?.totalTrips || 0;
+    const completedTrips = driver.tripStats?.completedTrips || 0;
+    const cancelledTrips = driver.tripStats?.cancelledTrips || 0;
+    
+    // Calculate completion rate
+    const completionRate = totalTrips > 0 
+      ? ((completedTrips / totalTrips) * 100).toFixed(2)
+      : 0;
+
+    // Check if license is expired
+    const isLicenseExpired = driver.licenceExpiry 
+      ? new Date(driver.licenceExpiry) < new Date()
+      : false;
+
+    // Calculate days until license expiry
+    const daysUntilExpiry = driver.licenceExpiry
+      ? Math.ceil((new Date(driver.licenceExpiry) - new Date()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    return {
+      _id: driver._id,
+      name: driver.name,
+      email: driver.email,
+      phone: driver.phone,
+      licenceNumber: driver.licenceNumber || "N/A",
+      licenceType: driver.licenceType,
+      licenceExpiry: driver.licenceExpiry,
+      licenceImage: driver.licenceImage,
+      isLicenseExpired,
+      daysUntilExpiry,
+      dutyStatus: driver.dutyStatus,
+      isActive: driver.isActive,
+      tripStats: {
+        totalTrips,
+        completedTrips,
+        cancelledTrips,
+        completionRate: parseFloat(completionRate)
+      },
+      joinedDate: driver.createdAt
+    };
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { drivers: driversWithMetrics, count: driversWithMetrics.length },
+      "Driver performance data retrieved successfully"
+    )
+  );
+});
+
+/**
+ * PATCH /api/v1/users/suspend-driver/:driverId
+ * Suspend a driver (prevent them from being assigned trips)
+ * Only accessible by FLEET_MANAGER
+ */
+const suspendDriver = AsyncHandler(async (req, res) => {
+  const { driverId } = req.params;
+  const { reason } = req.body;
+
+  if (!driverId) {
+    throw new ApiError(400, "Driver ID is required");
+  }
+
+  const driver = await User.findById(driverId);
+
+  if (!driver) {
+    throw new ApiError(404, "Driver not found");
+  }
+
+  if (driver.role !== "DRIVER") {
+    throw new ApiError(400, "User is not a driver");
+  }
+
+  if (!driver.isActive) {
+    throw new ApiError(400, "Driver is already suspended");
+  }
+
+  // Suspend the driver
+  driver.isActive = false;
+  driver.dutyStatus = "OFF_DUTY"; // Force off duty when suspended
+  await driver.save();
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { driver: { _id: driver._id, name: driver.name, isActive: driver.isActive } },
+      `Driver ${driver.name} has been suspended${reason ? ` - Reason: ${reason}` : ""}`
+    )
+  );
+});
+
+/**
+ * PATCH /api/v1/users/unsuspend-driver/:driverId
+ * Unsuspend a driver (allow them to be assigned trips again)
+ * Only accessible by FLEET_MANAGER
+ */
+const unsuspendDriver = AsyncHandler(async (req, res) => {
+  const { driverId } = req.params;
+
+  if (!driverId) {
+    throw new ApiError(400, "Driver ID is required");
+  }
+
+  const driver = await User.findById(driverId);
+
+  if (!driver) {
+    throw new ApiError(404, "Driver not found");
+  }
+
+  if (driver.role !== "DRIVER") {
+    throw new ApiError(400, "User is not a driver");
+  }
+
+  if (driver.isActive) {
+    throw new ApiError(400, "Driver is not suspended");
+  }
+
+  // Unsuspend the driver
+  driver.isActive = true;
+  await driver.save();
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { driver: { _id: driver._id, name: driver.name, isActive: driver.isActive } },
+      `Driver ${driver.name} has been unsuspended and can be assigned trips again`
+    )
+  );
+});
+
+/**
+ * Toggle driver duty status between ON_DUTY and OFF_DUTY
+ * Driver can only toggle their own status
+ */
+const toggleDutyStatus = AsyncHandler(async (req, res) => {
+  const driverId = req.user._id;
+
+  const driver = await User.findById(driverId);
+
+  if (!driver) {
+    throw new ApiError(404, "Driver not found");
+  }
+
+  if (driver.role !== "DRIVER") {
+    throw new ApiError(403, "Only drivers can toggle duty status");
+  }
+
+  if (!driver.isActive) {
+    throw new ApiError(403, "Account is inactive. Contact administrator.");
+  }
+
+  // Check if driver is currently on a trip (ON_TRIP status)
+  if (driver.dutyStatus === "ON_TRIP") {
+    throw new ApiError(400, "Cannot change duty status while on a trip");
+  }
+
+  // Toggle between ON_DUTY and OFF_DUTY
+  const newStatus = driver.dutyStatus === "ON_DUTY" ? "OFF_DUTY" : "ON_DUTY";
+  
+  driver.dutyStatus = newStatus;
+  await driver.save();
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        dutyStatus: driver.dutyStatus,
+        name: driver.fullName,
+        email: driver.email,
+      },
+      `Duty status changed to ${newStatus.replace("_", " ")}`
+    )
+  );
+});
+
 export {
   // Auth
   registerUser,
@@ -809,4 +1021,12 @@ export {
   activateUser,
   // Driver availability (for trip assignment)
   getAvailableDrivers,
+  // All drivers (for expense tracking)
+  getAllDrivers,
+  // Driver performance & safety (for compliance management)
+  getDriverPerformance,
+  suspendDriver,
+  unsuspendDriver,
+  // Driver duty status toggle
+  toggleDutyStatus,
 };

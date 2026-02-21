@@ -6,8 +6,8 @@ import {
   MapPin, 
   Wrench, 
   DollarSign, 
-  TrendingUp, 
-  BarChart3 
+  BarChart3,
+  Shield
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -44,12 +44,12 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
       icon: DollarSign,
     },
     {
-      name: 'Performance',
-      path: '/dashboard/performance',
-      icon: TrendingUp,
+      name: 'Driver Performance',
+      path: '/dashboard/driver-performance',
+      icon: Shield,
     },
     {
-      name: 'Analytics',
+      name: 'Analytics & Reports',
       path: '/dashboard/analytics',
       icon: BarChart3,
     },

@@ -36,6 +36,9 @@ import userRouter from "./Routes/user.routes.js";
 import dashboardRouter from "./Routes/dashboard.routes.js";
 import vehicleRouter from "./Routes/vehicle.routes.js";
 import tripRouter from "./Routes/trip.routes.js";
+import maintenanceRouter from "./Routes/maintenance.routes.js";
+import expenseRouter from "./Routes/expense.routes.js";
+import analyticsRouter from "./Routes/analytics.routes.js";
 
 // ─────────────────────────────────────────────
 // Route Declarations
@@ -44,6 +47,9 @@ app.use("/api/v1/users", userRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/vehicles", vehicleRouter);
 app.use("/api/v1/trips", tripRouter);
+app.use("/api/v1/maintenance", maintenanceRouter);
+app.use("/api/v1/expenses", expenseRouter);
+app.use("/api/v1/analytics", analyticsRouter);
 
 // ─────────────────────────────────────────────
 // Root Health Check

@@ -25,10 +25,17 @@ import {
   activateUser,
   // Driver availability
   getAvailableDrivers,
+  getAllDrivers,
+  // Driver performance & safety
+  getDriverPerformance,
+  suspendDriver,
+  unsuspendDriver,
+  // Driver duty status
+  toggleDutyStatus,
 } from "../Controllers/user.controller.js";
 
 import { verifyJWT } from "../Middlewares/auth.middleware.js";
-import { requireManager } from "../Middlewares/roleAuth.middleware.js";
+import { requireManager, requireAnyRole } from "../Middlewares/roleAuth.middleware.js";
 import { upload } from "../Middlewares/multer.middleware.js";
 
 const router = Router();
@@ -58,6 +65,25 @@ router.post("/getMyId", verifyJWT, getMyId);
 // Driver Availability (for trip assignment)
 // ─────────────────────────────────────────────
 router.get("/available-drivers", verifyJWT, getAvailableDrivers);
+
+// ─────────────────────────────────────────────
+// All Drivers (for expense tracking, etc.)
+// Accessible by FLEET_MANAGER, DISPATCHER, FINANCIAL_ANALYST
+// ─────────────────────────────────────────────
+router.get("/all-drivers", verifyJWT, requireAnyRole(["FLEET_MANAGER", "DISPATCHER", "FINANCIAL_ANALYST"]), getAllDrivers);
+
+// ─────────────────────────────────────────────
+// Driver Duty Status Toggle (Driver only)
+// ─────────────────────────────────────────────
+router.patch("/toggle-duty-status", verifyJWT, toggleDutyStatus);
+
+// ─────────────────────────────────────────────
+// Driver Performance & Safety (Compliance Management)
+// Accessible by FLEET_MANAGER, SAFETY_OFFICER
+// ─────────────────────────────────────────────
+router.get("/driver-performance", verifyJWT, requireAnyRole(["FLEET_MANAGER", "SAFETY_OFFICER"]), getDriverPerformance);
+router.patch("/suspend-driver/:driverId", verifyJWT, requireAnyRole(["FLEET_MANAGER"]), suspendDriver);
+router.patch("/unsuspend-driver/:driverId", verifyJWT, requireAnyRole(["FLEET_MANAGER"]), unsuspendDriver);
 
 // ─────────────────────────────────────────────
 // Manager-Only Routes (RBAC: MANAGER role)
